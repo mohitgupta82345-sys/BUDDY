@@ -3,6 +3,9 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import crypto from 'crypto'
+import dotenv from 'dotenv'
+
+dotenv.config()
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -51,40 +54,64 @@ function writeLocalDb(data) {
 
 // --- Initialize DB ---
 export async function initDb() {
-  if (databaseUrl) {
-    try {
-      pool = new pg.Pool({
-        connectionString: databaseUrl,
-        ssl: process.env.NODE_ENV === 'production' && !databaseUrl.includes('localhost') ? { rejectUnauthorized: false } : false,
-        connectionTimeoutMillis: 3000,
-      })
-
-      // Test connection
-      const client = await pool.connect()
-      console.log('✅ [Database] Successfully connected to PostgreSQL database.')
-
-      // Run migrations
-      const schemaPath = path.join(__dirname, 'schema.sql')
-      if (fs.existsSync(schemaPath)) {
-        const schemaSql = fs.readFileSync(schemaPath, 'utf8')
-        await client.query(schemaSql)
-        console.log('✅ [Database] PostgreSQL schema and migrations initialized.')
-      }
-
-      client.release()
-      usePostgres = true
-      return { type: 'postgresql', connected: true }
-    } catch (err) {
-      console.warn('⚠️ [Database] Could not connect to PostgreSQL:', err.message)
-      console.warn('ℹ️ [Database] Falling back to robust local persistent database adapter.')
-      usePostgres = false
+  if (!databaseUrl) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('DATABASE_URL is required in production; local file storage is disabled.')
     }
-  } else {
+
     console.log('ℹ️ [Database] DATABASE_URL not set. Running with persistent local database adapter.')
+    ensureLocalDb()
+    return { type: 'local', connected: true }
   }
 
-  ensureLocalDb()
-  return { type: 'local', connected: true }
+  let client
+  try {
+    const connectionUrl = new URL(databaseUrl)
+    const hostname = connectionUrl.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    const isLocalDatabase = ['localhost', '127.0.0.1', '::1'].includes(hostname)
+
+    if (!isLocalDatabase) {
+      connectionUrl.searchParams.set('sslmode', 'verify-full')
+    }
+
+    pool = new pg.Pool({
+      connectionString: connectionUrl.toString(),
+      ssl: isLocalDatabase ? false : { rejectUnauthorized: true },
+      connectionTimeoutMillis: 5000,
+    })
+
+    client = await pool.connect()
+    console.log('✅ [Database] Successfully connected to PostgreSQL database.')
+
+    const schemaPath = path.join(__dirname, 'schema.sql')
+    if (fs.existsSync(schemaPath)) {
+      const schemaSql = fs.readFileSync(schemaPath, 'utf8')
+      await client.query(schemaSql)
+      console.log('✅ [Database] PostgreSQL schema and migrations initialized.')
+    }
+
+    client.release()
+    client = null
+    usePostgres = true
+    return { type: 'postgresql', connected: true }
+  } catch (err) {
+    if (client) client.release()
+    if (pool) {
+      await pool.end()
+      pool = null
+    }
+    usePostgres = false
+
+    if (process.env.NODE_ENV === 'production') {
+      console.error('❌ [Database] PostgreSQL initialization failed in production. Error code:', err.code || err.name)
+      throw err
+    }
+
+    console.warn('⚠️ [Database] Could not connect to PostgreSQL. Error code:', err.code || err.name)
+    console.warn('ℹ️ [Database] Falling back to local file storage for development.')
+    ensureLocalDb()
+    return { type: 'local', connected: true }
+  }
 }
 
 export function isUsingPostgres() {

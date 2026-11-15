@@ -12,10 +12,10 @@
 - **Route Protection:** Protects private routes (`/dashboard`, `/profile`, `/assessment`, `/results`).
 - **Seamless Returning User Flow:** Remembers user session, automatically skips onboarding for returning users, and loads their personalized dashboard.
 
-### 2. Dual Database Architecture (PostgreSQL + Persistent Adapter)
-- **PostgreSQL Integration:** Fully configured using connection pooling (`pg.Pool`), relational tables (`users`, `profiles`, `assessments`, `saved_careers`, `learning_progress`), foreign keys, cascade deletes, and indexing.
-- **Automatic Migration Runner:** Automatically executes `server/schema.sql` on connecting to PostgreSQL.
-- **Zero-Setup Fallback Adapter:** If PostgreSQL is not configured or offline, BUDDY smoothly falls back to its persistent database adapter (`data/buddy_database.json`) with identical relational models so the entire app works without throwing errors.
+### 2. PostgreSQL with a Development Adapter
+- **PostgreSQL Integration:** Uses connection pooling (`pg.Pool`) with relational tables for users, profiles, assessments, saved careers, learning progress, and feedback.
+- **Automatic Schema Setup:** Executes `server/schema.sql` at startup and uses verified TLS for remote PostgreSQL connections.
+- **Development-only Local Adapter:** Outside production, the app can use `data/buddy_database.json` if PostgreSQL is not configured or reachable. Production requires a working `DATABASE_URL` and stops on database errors instead of falling back to local files.
 
 ### 3. Comprehensive Student Onboarding
 - First-time signup routes directly to student onboarding.
@@ -65,7 +65,7 @@
 
 - **Frontend:** React 19, Vite, Tailwind CSS v4, React Router DOM v7, Recharts, Lucide React, Framer Motion
 - **Backend:** Node.js, Express 5, JWT (`jsonwebtoken`), `bcryptjs`, CORS, Dotenv
-- **Database:** PostgreSQL (`pg`) with automatic DDL migrations, persistent local fallback adapter
+- **Database:** PostgreSQL (`pg`) with automatic schema setup and a development-only local adapter
 - **AI Engine:** Google Gen AI SDK (`@google/genai`) with Gemini 2.5 + deterministic scoring engine
 
 ---
@@ -122,7 +122,7 @@ HEY BUDDY/
 
 ### 1. Prerequisites
 - Node.js (v18 or higher recommended)
-- PostgreSQL (optional: if not installed, BUDDY runs seamlessly on its persistent adapter)
+- PostgreSQL (optional for local development; required for production deployments)
 
 ### 2. Installation
 ```bash
@@ -135,7 +135,7 @@ Copy `.env.example` to `.env`:
 PORT=3001
 JWT_SECRET=replace-with-a-unique-random-secret
 
-# Optional: PostgreSQL Database URL
+# Optional for local development; required in production
 DATABASE_URL=
 
 # Optional: Google Gemini API Key for AI features
@@ -174,6 +174,7 @@ Visit **`http://localhost:5173`** in your browser.
    ```env
    DATABASE_URL=postgresql://<username>:<password>@localhost:5432/buddy_db
    ```
+   For a hosted provider such as Neon, use its PostgreSQL connection string. Remote database connections require valid TLS certificates. Set `NODE_ENV=production` in production; the server will refuse to start if PostgreSQL is unavailable.
 3. Restart the server (`npm run server`). BUDDY will automatically execute `server/schema.sql` and output:
    ```
    ✅ [Database] Successfully connected to PostgreSQL database.
