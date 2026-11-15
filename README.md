@@ -141,9 +141,13 @@ DATABASE_URL=
 # Optional: Google Gemini API Key for AI features
 GEMINI_API_KEY=
 
+# Local frontend origin (Vite proxies /api to the backend)
 VITE_API_BASE_URL=http://localhost:5173
+FRONTEND_URL=http://localhost:5173
 ```
 Replace the `JWT_SECRET` placeholder with a unique, randomly generated secret before starting the backend. Keep `.env` local and never commit it.
+
+For deployment, set Vercel's `VITE_API_BASE_URL` to the Render backend origin (for example, `https://<your-service>.onrender.com`, without `/api`). Set Render's `FRONTEND_URL` to the Vercel frontend origin. Vercel embeds `VITE_` variables at build time, so redeploy the frontend after changing it. Multiple frontend origins may be comma-separated in `FRONTEND_URL`.
 
 ### 4. Run Development Servers
 To run both backend API server and frontend client concurrently:

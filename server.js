@@ -41,8 +41,13 @@ if (!JWT_SECRET || JWT_SECRET.startsWith('replace-with-')) {
 
 const app = express()
 
+const frontendOrigins = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/+$/, ''))
+  .filter(Boolean)
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173', ...frontendOrigins],
   credentials: true,
 }))
 app.use(express.json({ limit: '2mb' }))
