@@ -47,7 +47,12 @@ const frontendOrigins = (process.env.FRONTEND_URL || '')
   .filter(Boolean)
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173', ...frontendOrigins],
+  origin: [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'https://buddy-phi-six.vercel.app',
+    ...frontendOrigins,
+  ],
   credentials: true,
 }))
 app.use(express.json({ limit: '2mb' }))
